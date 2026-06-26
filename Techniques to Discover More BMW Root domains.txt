@@ -1,0 +1,69 @@
+Techniques to Discover More BMW Root Domains
+1. ASN / BGP Lookups (find IPs → reverse to domains)
+# BMW's known ASNs
+whois -h whois.radb.net -- '-i origin AS12684'  | grep '^route:'
+whois -h whois.radb.net -- '-i origin AS12695'  | grep '^route:'
+# Then reverse-lookup each IP range:
+# use SecurityTrails, Shodan, or hakrevdns
+You can also find additional ASNs with: echo "bmw" | httpx -asn
+
+2. Reverse WHOIS (org-name based)
+# Look up domains registered by BMW organization names
+# Using whoxy.com API, domaineye.com, or viewdns.info/reversewhois
+# Search terms: "BMW AG", "Bayerische Motoren Werke", "BMW Group"
+#                "BMW Financial Services", "MINI", "Rolls-Royce Motor Cars"
+# Tool: github.com/atenreiro/whoxyrm
+3. Certificate Transparency — expand your search
+You only got 2 of ~40+ root domains from crt.sh. Query ALL known roots:
+
+roots="bmw.com bmw.de bmwgroup.com bmw-motorrad.com bmw-motorrad.de miniusa.com mini.com mini.de rolls-roycemotorcars.com bmwusa.com bmw.co.uk bmw.ca bmw.cn bmw.jp bmw.fr bmw.it bmw.es bmw.in bmw.co.za bmwgroup.net bmw.ru bmw-online.ae bmwdca.com rtcbmw.com alphabet.com drive-now.com park-now.com charge-now.com"
+for r in $roots; do
+  echo "=== $r ==="
+  curl -s "https://crt.sh/?q=%25.$r&output=json" | jq -r '.[].common_name, .[].name_value' 2>/dev/null | tr ',' '\n' | grep -v '^\*\.' | sort -u >> bmw_all_subs.txt
+  sleep 5  # avoid rate limiting
+done
+4. SecurityTrails / Shodan / Censys
+# SecurityTrails API (free tier available)
+curl "https://api.securitytrails.com/v1/domain/bmw.com/subdomains" -H "apikey: YOUR_KEY"
+
+# Shodan
+shodan domain bmw.com
+shodan search 'org:"BMW"' --fields hostnames
+
+# Censys
+censys search 'services.tls.certificates.leaf_data.issuer.organization:"BMW"' 
+5. Chaos / Project Discovery
+# Free subdomain dataset
+curl -s "https://chaos-data.projectdiscovery.io/bmw-group.json"
+# Then download the zip files listed
+6. Google Dorks (find unknown BMW sites)
+site:bmw.* -site:bmw.com -site:bmw.de
+"BMW Group" inurl:contact
+"Bayerische Motoren Werke" site:*
+"copyright BMW" -site:bmw.com -site:bmw.de
+7. Brand Acquisitions & Subsidiaries
+BMW Group owns/partners with brands beyond the obvious:
+
+Rolls-Royce Motor Cars — rolls-roycemotorcars.com
+Alphera Financial Services — alphera.*
+ShareNow (formerly DriveNow) — share-now.com
+ParkNow — park-now.com
+ChargeNow — charge-now.com
+ReachNow — reachnow.com
+Designworks — designworks.com
+BMW i Ventures — portfolio companies
+8. URLScan / Wayback Machine
+# URLScan.io — search by org name or IP
+curl "https://urlscan.io/api/v1/search/?q=domain:bmw.com"
+
+# Wayback Machine CDX
+curl "https://web.archive.org/cdx/search/cdx?url=*.bmw.com/*&output=text&fl=original&collapse=urlkey"
+9. Recursive subdomain pivoting
+Once you find a new subdomain, check its CNAME and IP for sibling domains. A site on a shared CDN or AWS/GCP org may reveal other BMW assets.
+
+10. Check the separate BMW Automotive program
+We already saw it — it's device + app focused, but recon on the mobile app APIs (de.bmw.connected.mobile20.row) could reveal backend API domains to add to your web scope hunt.
+
+---
+
+Priority: Start with technique #3 (crt.sh for all known roots) with proper rate limiting — that alone will 5-10x your domain list. Then follow up with ASN reverse lookups (#1) and SecurityTrails (#4).
